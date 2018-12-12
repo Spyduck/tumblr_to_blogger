@@ -1,4 +1,4 @@
-# tumblr_to_blogger
+# Tumblr-To-Blogger Migration Utility
 Migrate Posts to Blogger from Tumblr archives
 
 ## Requirements
