@@ -1,4 +1,4 @@
-import sys, os, glob, mimetypes, time, html, json, io
+import sys, os, glob, time, html, json, io
 from configparser import ConfigParser
 from zipfile import ZipFile
 from bs4 import BeautifulSoup
