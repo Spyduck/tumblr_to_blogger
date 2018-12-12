@@ -47,8 +47,7 @@ def main(argv):
 			sys.exit()
 		with ZipFile(posts_zip, 'r') as archive:
 			with archive.open('/posts.xml') as posts_f:
-				with open('posts.xml', 'rb') as posts_f:
-					posts_xml = posts_f.read()
+				posts_xml = posts_f.read()
 	else:
 		main_archive = ZipFile(backup_path, 'r')
 		with main_archive.open('/posts.zip', 'r') as posts_zip:
@@ -60,7 +59,7 @@ def main(argv):
 		print('Loading from archive')
 	else:
 		print('Loading from folder')
-	
+
 	# blogger stuff
 	service, flags = sample_tools.init(
 		argv, 'blogger', 'v3', __doc__, __file__,
@@ -83,61 +82,104 @@ def main(argv):
 				posts.reverse()
 				for post in posts:
 					post_id = post.get('id')
+					if post_id in blog_info['posted_ids']:
+						continue
 					post_date = post.get('date')
+					title = post_date
+					if post.get('is_reblog','false') == 'true':
+						continue
 					print('Loading Tumblr post ID: '+post_id+', type: '+post.get('type'))
+					# get tags
+					tag_list = []
+					tags = post.find_all('tag')
+					for tag in tags:
+						if tag.text:
+							tag_list.append(tag.text)
+					body = '<div class="original-date">Originally posted: '+post_date+'</div><br/>'
+					if post.get('type') == 'video':
+						print('  Skipping video post...')
+						continue
+					if post.get('type') == 'regular':
+						regular_body = post.find('regular-body')
+						regular_title = post.find('regular-title')
+						if regular_body:
+							body += regular_body.text
+						if regular_title:
+							title = regular_title.text
+					if post.get('type') == 'answer':
+						answer = post.find('answer')
+						question = post.find('question')
+						if question:
+							body += '<blockquote class="question">'+question.text+'<blockquote>'
+						if answer:
+							body += '<blockquote class="answer">'+answer.text+'<blockquote>'
+					if post.get('type') == 'quote':
+						quote_text = post.find('quote-text')
+						quote_source = post.find('quote-source')
+						if quote_text:
+							body += '<blockquote class="quote-text">'+quote_text.text+'<blockquote>'
+							if quote_source:
+								body += '<div class="quote-source">'+quote_text.text+'<div><br/>'
+					if post.get('type') == 'conversation':
+						conversation_title = post.get('conversation-title')
+						conversation_text = post.get('conversation-text')
+						if conversation_title:
+							title = conversation_title.text
+						if conversation_text:
+							body += '<blockquote class="conversation-text">'+conversation_text+'</blockquote><br/>'
+						# todo: add conversation/line tags
 					if post.get('type') == 'photo':
-						photo_url = post.find('photo-url')
-						if photo_url:
-							# get caption
-							caption = post.find('photo-caption')
-							# get tags
-							tag_list = []
-							tags = post.find_all('tag')
-							for tag in tags:
-								if tag.text:
-									tag_list.append(tag.text)
-							# get photos
-							files = []
-							if not backup_is_archive:
-								files = glob.glob(os.path.join(os.path.join(backup_path, 'media'), post_id+'*.jpg'))
-								files.extend(glob.glob(os.path.join(os.path.join(backup_path, 'media'), post_id+'*.png')))
-							else:
-								for file in files_all:
-									if file.startswith('/media/'+post_id):
-										files.append(file)
-							files = sorted(files, key=lambda item: (int(item.partition(' ')[0]) if item[0].isdigit() else float('inf'), item))
-							images = []
-							# upload to imgur
-							for filename in files:
-								image = {}
-								if not backup_is_archive:
-									image = imgur.upload_from_path(filename, config=None, anon=True)
-								else:
-									with main_archive.open(filename, 'r') as f, open('./temp', 'wb') as f2:
-										f2.write(f.read())
-										image = imgur.upload_from_path('./temp', config=None, anon=True)
-									os.remove('./temp')
-								if image.get('link'):
-									images.append(image.get('link'))
-								if image.get('deletehash'):
-									print('  Imgur upload', image.get('link'), ' deletehash: ', image.get('deletehash'))
-								time.sleep(0.2)
-							src = '<div class="photoset">'
-							for image in images:
-								src = '<a href="'+image+'"><img src="'+image+'"/></a>'
-							src += '<div class="description">'+html.unescape(caption.text)+'</div></div>'
-							body = {
-								"kind": "blogger#post",
-								"id": blog_id,
-								"title": post_date,
-								"content":src,
-								"labels":tag_list,
-							}
-							new_post = blog_posts.insert(blogId=blog['id'], body=body, isDraft=draft).execute()
-							blog_info['posted_ids'].append(post_id)
-							print('  Blogger upload', new_post.get('url'))
-							time.sleep(0.1)
+						pass
+					photo_url = post.find('photo-url')
+					if photo_url:
+						# get caption
+						captions = post.find_all('photo-caption') or []
+					# get photos
+					files = []
+					if not backup_is_archive:
+						files = glob.glob(os.path.join(os.path.join(backup_path, 'media'), post_id+'*.jpg'))
+						files.extend(glob.glob(os.path.join(os.path.join(backup_path, 'media'), post_id+'*.png')))
+					else:
+						for file in files_all:
+							if file.startswith('/media/'+post_id):
+								files.append(file)
+					files = sorted(files, key=lambda item: (int(item.partition(' ')[0]) if item[0].isdigit() else float('inf'), item))
+					images = []
+					# upload to imgur
+					for filename in files:
+						image = {}
+						if not backup_is_archive:
+							image = imgur.upload_from_path(filename, config=None, anon=True)
+						else:
+							with main_archive.open(filename, 'r') as f, open('./temp', 'wb') as f2:
+								f2.write(f.read())
+								image = imgur.upload_from_path('./temp', config=None, anon=True)
+							os.remove('./temp')
+						if image.get('link'):
+							images.append(image.get('link'))
+						if image.get('deletehash'):
+							print('  Imgur upload', image.get('link'), ' deletehash: ', image.get('deletehash'))
+						time.sleep(0.2)
+					if post.get('type') == 'photo':
+						body += '<div class="photoset">'
+					for image in images:
+						body += '<div class="photo"><a href="'+image+'"><img src="'+image+'"/></a></div><br/>'
+					for caption in captions:
+						body += '<div class="photo-caption">'+html.unescape(caption.text)+'</div><br/>'
+					if post.get('type') == 'photo':
+						body += '</div>'
+					body_json = {
+						"kind": "blogger#post",
+						"id": blog_id,
+						"title": title,
+						"content":body,
+						"labels":tag_list,
+					}
+					new_post = blog_posts.insert(blogId=blog['id'], body=body_json, isDraft=draft).execute()
+					blog_info['posted_ids'].append(post_id)
+					print('  Blogger upload', new_post.get('url'), '"'+title+'"')
 					print(' ')
+					time.sleep(0.1)
 	except client.AccessTokenRefreshError:
 		print('The credentials have been revoked or expired, please re-run the application to re-authorize')
 	except KeyboardInterrupt:
