@@ -7,6 +7,11 @@ Requires Python 3, Google API for Python, imgurpython and Beautiful Soup
 pip install --upgrade google-api-python-client imgurpython beautifulsoup4
 ```
 
+Optional IPFS integration requires ipfsapi (and a running IPFS daemon)
+```
+pip install ipfsapi
+```
+
 Also requires a blog on Blogger (along with Google API keys) and Tumblr blog archive (you can download this in your blog settings). For convenience, an Imgur API client ID is included in the example config for anonymous uploads, but might become rate limited if many people use it.
 
 ## Installation

@@ -6,19 +6,30 @@ from oauth2client import client
 from googleapiclient import sample_tools
 from imgurpython import ImgurClient
 
+# optional ipfs
+try:
+	import ipfsapi
+except:
+	pass
+
 # set default config and read config.cfg if it exists
 config = ConfigParser()
-config['DEFAULT'] = {'blogger_blog_id':'0', 'imgur_client_id':'0', 'tumblr_archive_path':'./archive.zip', 'draft':True}
+config['DEFAULT'] = {'blogger_blog_id':'0', 'imgur_client_id':'0', 'tumblr_archive_path':'./archive.zip', 'draft':True, 'use_ipfs':False}
 if os.path.exists('config.cfg'):
 	config.read('config.cfg')
 
 blog_id = config.get('default', 'blogger_blog_id')
 imgur_client_id = config.get('default', 'imgur_client_id')
 draft = config.getboolean('default', 'draft')
+use_ipfs = config.getboolean('default', 'use_ipfs') and 'ipfsapi' in dir() # will post to a local ipfs daemon instead of imgur
+
 backup_path = os.path.abspath(config.get('default', 'tumblr_archive_path'))
 
-
-imgur = ImgurClient(imgur_client_id, '')
+ipfs = None
+if not use_ipfs:
+	imgur = ImgurClient(imgur_client_id, '')
+else:
+	ipfs = ipfsapi.connect('127.0.0.1', 5001)
 
 blog_info = {'posted_ids':[]} # contains the tumblr post ID's that have been posted to blogger
 if os.path.exists('blog_info.json'):
@@ -139,6 +150,7 @@ def main(argv):
 					if not backup_is_archive:
 						files = glob.glob(os.path.join(os.path.join(backup_path, 'media'), post_id+'*.jpg'))
 						files.extend(glob.glob(os.path.join(os.path.join(backup_path, 'media'), post_id+'*.png')))
+						files.extend(glob.glob(os.path.join(os.path.join(backup_path, 'media'), post_id+'*.gif')))
 					else:
 						for file in files_all:
 							if file.startswith('/media/'+post_id):
@@ -147,18 +159,29 @@ def main(argv):
 					images = []
 					# upload to imgur
 					for filename in files:
-						image = {}
-						if not backup_is_archive:
-							image = imgur.upload_from_path(filename, config=None, anon=True)
+						if not use_ipfs:
+							image = {}
+							if not backup_is_archive:
+								image = imgur.upload_from_path(filename, config=None, anon=True)
+							else:
+								with main_archive.open(filename, 'r') as f, open('./temp', 'wb') as f2:
+									f2.write(f.read())
+									image = imgur.upload_from_path('./temp', config=None, anon=True)
+								os.remove('./temp')
+							if image.get('link'):
+								images.append(image.get('link'))
+							if image.get('deletehash'):
+								print('  Imgur upload', image.get('link'), ' deletehash: ', image.get('deletehash'))
 						else:
-							with main_archive.open(filename, 'r') as f, open('./temp', 'wb') as f2:
-								f2.write(f.read())
-								image = imgur.upload_from_path('./temp', config=None, anon=True)
-							os.remove('./temp')
-						if image.get('link'):
-							images.append(image.get('link'))
-						if image.get('deletehash'):
-							print('  Imgur upload', image.get('link'), ' deletehash: ', image.get('deletehash'))
+							image_hash = None
+							if not backup_is_archive:
+								image_hash = ipfs.add(filename).get('Hash')
+							else:
+								with main_archive.open(filename, 'r') as f:
+									image_hash = ipfs.add_bytes(f.read())
+							if image_hash:
+								images.append('http://ipfs.io/ipfs/'+image_hash)
+								print('  ipfs upload', 'http://ipfs.io/ipfs/'+image_hash)
 						time.sleep(0.2)
 					if post.get('type') == 'photo':
 						body += '<div class="photoset">'
