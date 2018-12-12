@@ -18,6 +18,6 @@ python migrate.py
 ```
 
 ## What's working
-Migration of photo posts from a tumblr zip archive (or extracted archive directory)
+Migration of photo posts from a tumblr zip archive (or extracted archive directory). Posts are uploaded to imgur for now.
 
 Only photo posts from tumblr get parsed right now.
