@@ -4,12 +4,11 @@ from zipfile import ZipFile
 from bs4 import BeautifulSoup
 from oauth2client import client
 from googleapiclient import sample_tools
-from apiclient.http import MediaFileUpload
 from imgurpython import ImgurClient
 
 # set default config and read config.cfg if it exists
 config = ConfigParser()
-config['DEFAULT'] = {'blogger_blog_id':'0', 'imgur_client_id':'8d3b82bde368ee1', 'tumblr_archive_path':'./archive.zip', 'draft':True}
+config['DEFAULT'] = {'blogger_blog_id':'0', 'imgur_client_id':'0', 'tumblr_archive_path':'./archive.zip', 'draft':True}
 if os.path.exists('config.cfg'):
 	config.read('config.cfg')
 
