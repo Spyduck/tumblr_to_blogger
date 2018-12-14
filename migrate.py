@@ -14,7 +14,7 @@ except:
 
 # set default config and read config.cfg if it exists
 config = ConfigParser()
-config['DEFAULT'] = {'blogger_blog_id':'0', 'imgur_client_id':'0', 'tumblr_archive_path':'./archive.zip', 'draft':True, 'use_ipfs':False}
+config['default'] = {'blogger_blog_id':'0', 'imgur_client_id':'0', 'tumblr_archive_path':'./archive.zip', 'draft':True, 'use_ipfs':False}
 if os.path.exists('config.cfg'):
 	config.read('config.cfg')
 
