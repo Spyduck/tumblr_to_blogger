@@ -142,6 +142,7 @@ def main(argv):
 					if post.get('type') == 'photo':
 						pass
 					photo_url = post.find('photo-url')
+					captions = []
 					if photo_url:
 						# get caption
 						captions = post.find_all('photo-caption') or []
@@ -172,6 +173,7 @@ def main(argv):
 								images.append(image.get('link'))
 							if image.get('deletehash'):
 								print('  Imgur upload', image.get('link'), ' deletehash: ', image.get('deletehash'))
+							time.sleep(0.2)
 						else:
 							image_hash = None
 							if not backup_is_archive:
@@ -180,9 +182,10 @@ def main(argv):
 								with main_archive.open(filename, 'r') as f:
 									image_hash = ipfs.add_bytes(f.read())
 							if image_hash:
-								images.append('http://ipfs.io/ipfs/'+image_hash)
-								print('  ipfs upload', 'http://ipfs.io/ipfs/'+image_hash)
-						time.sleep(0.2)
+								with open('ipfs_pin_'+blog_id+'.sh', 'a') as f:
+									f.write('ipfs pin add '+image_hash+'\r\n')
+								images.append('https://ipfs.io/ipfs/'+image_hash)
+								print('  ipfs upload', 'https://ipfs.io/ipfs/'+image_hash)
 					if post.get('type') == 'photo':
 						body += '<div class="photoset">'
 					for image in images:
@@ -202,13 +205,11 @@ def main(argv):
 					blog_info['posted_ids'].append(post_id)
 					print('  Blogger upload', new_post.get('url'), '"'+title+'"')
 					print(' ')
-					time.sleep(0.1)
+					time.sleep(0.25)
 	except client.AccessTokenRefreshError:
 		print('The credentials have been revoked or expired, please re-run the application to re-authorize')
 	except KeyboardInterrupt:
 		print('Exiting (KeyboardInterrupt)')
-	except Exception as e:
-		print(e)
 	if main_archive:
 		main_archive.close()
 	if len(blog_info['posted_ids']) > 0:
